@@ -1465,7 +1465,30 @@ N.B.: It is important to check the ReceiveFlags in NDIS_TEST_RECEIVE_CANNOT_PEND
 
 --*/
 {
+    PMS_FILTER          pFilter = (PMS_FILTER)FilterModuleContext;
+    BOOLEAN             DispatchLevel;
+    ULONG               ReturnFlags = 0;
 
+    UNREFERENCED_PARAMETER(NumberOfNetBufferLists);
+    UNREFERENCED_PARAMETER(PortNumber);
+
+    DEBUGP(DL_TRACE, "===>ReceiveNetBufferList: NetBufferLists = %p.\n", NetBufferLists);
+
+    // Check if we are at dispatch level
+    DispatchLevel = NDIS_TEST_RECEIVE_AT_DISPATCH_LEVEL(ReceiveFlags);
+
+    // Set the appropriate return flag if at dispatch level
+    if (DispatchLevel)
+    {
+        NDIS_SET_RETURN_FLAG(ReturnFlags, NDIS_RETURN_FLAGS_DISPATCH_LEVEL);
+    }
+
+    // Return all NetBufferLists to the lower-level driver without indicating them up
+    NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReturnFlags);
+
+    DEBUGP(DL_TRACE, "<===ReceiveNetBufferList: Flags = %8x.\n", ReceiveFlags);
+
+    /*
     PMS_FILTER          pFilter = (PMS_FILTER)FilterModuleContext;
     BOOLEAN             DispatchLevel;
     ULONG               Ref;
@@ -1572,7 +1595,7 @@ N.B.: It is important to check the ReceiveFlags in NDIS_TEST_RECEIVE_CANNOT_PEND
     } while (bFalse);
 
     DEBUGP(DL_TRACE, "<===ReceiveNetBufferList: Flags = %8x.\n", ReceiveFlags);
-
+    */
 }
 
 
