@@ -2,30 +2,14 @@
 
 Copyright (c) 2001  Microsoft Corporation
 
-Module Name:
-
-    debug.h
-
-Abstract:
-
-    This module contains all debug related prototypes for MS FILTER
-
-Revision History:
-
-
-Notes:
-
 --*/
 
 // disable warnings
 
-
 #ifndef _FILTDEBUG__H
 #define _FILTDEBUG__H
 
-//
 // Message verbosity: lower values indicate higher urgency
-//
 #define DL_EXTRA_LOUD       20
 #define DL_VERY_LOUD        10
 #define DL_LOUD             8
@@ -124,14 +108,9 @@ extern INT                filterDebugLevel;
         }
 
 
-
-//
 // Memory Allocation/Freeing Audit:
-//
 
-//
 // The FILTER_ALLOCATION structure stores all info about one allocation
-//
 typedef struct _FILTERD_ALLOCATION {
 
         ULONG                       Signature;
@@ -181,9 +160,7 @@ DbgPrintHexDump(
 
 #else
 
-//
 // No debug
-//
 #define DEBUGP(lev, ...)
 #define DEBUGPDUMP(lev, pBuf, Len)
 

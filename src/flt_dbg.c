@@ -2,21 +2,6 @@
 
 Copyright (c) 2001  Microsoft Corporation
 
-Module Name:
-
-    debug.c
-
-Abstract:
-
-    This module contains all debug-related code.
-
-Revision History:
-
-    Who         When        What
-    --------    --------    ----------------------------------------------
-
-Notes:
-
 --*/
 
 #include  "precomp.h"
@@ -54,9 +39,7 @@ filterAuditAllocMem(
         filterdInitDone = TRUE;
     }
 
-    //
     // Integer overflow check
-    //
     if ((Size + (ULONG) sizeof(FILTERD_ALLOCATION)) < Size)
     {
         DEBUGP(DL_VERY_LOUD+50,
@@ -98,9 +81,7 @@ filterAuditAllocMem(
             pAllocInfo->Prev = filterdMemoryTail;
             if (filterdMemoryTail == (PFILTERD_ALLOCATION)NULL)
             {
-                //
                 // empty list
-                //
                 filterdMemoryHead = filterdMemoryTail = pAllocInfo;
             }
             else
@@ -209,23 +190,6 @@ DbgPrintHexDump(
     IN    PUCHAR            pBuffer,
     IN    ULONG            Length
 )
-/*++
-
-Routine Description:
-
-    Print a hex dump of the given contiguous buffer. If the length
-    is too long, we truncate it.
-
-Arguments:
-
-    pBuffer            - Points to start of data to be dumped
-    Length            - Length of above.
-
-Return Value:
-
-    None
-
---*/
 {
     ULONG        i;
 
@@ -236,17 +200,11 @@ Return Value:
 
     for (i = 0; i < Length; i++)
     {
-        //
-        //  Check if we are at the end of a line
-        //
         if ((i > 0) && ((i & 0xf) == 0))
         {
             DbgPrint("\n");
         }
 
-        //
-        //  Print addr if we are at start of a new line
-        //
         if ((i & 0xf) == 0)
         {
             DbgPrint("%08p ", pBuffer);
@@ -255,9 +213,6 @@ Return Value:
         DbgPrint(" %02x", *pBuffer++);
     }
 
-    //
-    //  Terminate the last line.
-    //
     if (Length > 0)
     {
         DbgPrint("\n");
@@ -351,9 +306,7 @@ filterAcquireSpinLock(
         NdisAcquireSpinLock(&(pLock->NdisLock));
     }
 
-    //
     //  Mark this lock.
-    //
     pLock->TouchedByFileNumber = FileNumber;
     pLock->TouchedInLineNumber = LineNumber;
 }
@@ -406,4 +359,3 @@ filterReleaseSpinLock(
     }
 }
 #endif // DBG_SPIN_LOCK
-

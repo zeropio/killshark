@@ -1,9 +1,3 @@
-/*++
- *
- * The file contains the routines to create a device and handle ioctls
- *
--- */
-
 #include "precomp.h"
 
 
@@ -36,9 +30,7 @@ FilterRegisterDevice(
     NdisInitUnicodeString(&DeviceName, NTDEVICE_STRING);
     NdisInitUnicodeString(&DeviceLinkUnicodeString, LINKNAME_STRING);
 
-    //
     // Create a device object and register our dispatch handlers
-    //
     NdisZeroMemory(&DeviceAttribute, sizeof(NDIS_DEVICE_OBJECT_ATTRIBUTES));
 
     DeviceAttribute.Header.Type = NDIS_OBJECT_TYPE_DEVICE_OBJECT_ATTRIBUTES;
@@ -222,9 +214,8 @@ FilterDeviceIoControl(
 
                 Status = NDIS_STATUS_SUCCESS;
             }
-            //
+
             // Buffer is small
-            //
             else
             {
                 Status = STATUS_BUFFER_TOO_SMALL;
@@ -283,7 +274,3 @@ filterFindFilterModule(
    FILTER_RELEASE_LOCK(&FilterListLock, bFalse);
    return NULL;
 }
-
-
-
-

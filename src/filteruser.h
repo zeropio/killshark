@@ -4,9 +4,7 @@
 #ifndef __FILTERUSER_H__
 #define __FILTERUSER_H__
 
-//
 // Temp file to test filter
-//
 
 #define _NDIS_CONTROL_CODE(request,method) \
             CTL_CODE(FILE_DEVICE_PHYSICAL_NETCARD, request, method, FILE_ANY_ACCESS)
@@ -87,4 +85,3 @@ typedef struct _FILTER_WRITE_CONFIG
 }FILTER_WRITE_CONFIG, *PFILTER_WRITE_CONFIG;
 
 #endif //__FILTERUSER_H__
-

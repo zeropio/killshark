@@ -2,16 +2,6 @@
 
 Copyright (c) Microsoft Corporation
 
-Module Name:
-
-    Filter.h
-
-Abstract:
-
-    This module contains all prototypes and macros for filter code.
-
-Notes:
-
 --*/
 #ifndef _FILT_H
 #define _FILT_H
@@ -19,31 +9,15 @@ Notes:
 #pragma warning(disable:28930) // Unused assignment of pointer, by design in samples
 #pragma warning(disable:28931) // Unused assignment of variable, by design in samples
 
-// TODO: Customize these to hint at your component for memory leak tracking.
-// These should be treated like a pooltag.
-#define FILTER_REQUEST_ID          'RTLF'
-#define FILTER_ALLOC_TAG           'tliF'
-#define FILTER_TAG                 'dnTF'
+#define FILTER_REQUEST_ID          'KRID'
+#define FILTER_ALLOC_TAG           'KATG'
+#define FILTER_TAG                 'KSFT'
 
-// TODO: Specify which version of the NDIS contract you will use here.
-// In many cases, 6.0 is the best choice.  You only need to select a later
-// version if you need a feature that is not available in 6.0.
-//
-// Legal values include:
-//    6.0  Available starting with Windows Vista RTM
-//    6.1  Available starting with Windows Vista SP1 / Windows Server 2008
-//    6.20 Available starting with Windows 7 / Windows Server 2008 R2
-//    6.30 Available starting with Windows 8 / Windows Server "8"
-// Or, just use NDIS_FILTER_MAJOR_VERSION / NDIS_FILTER_MINOR_VERSION
-// to pick up whatever version is defined by your build system
-// (for example, "-DNDIS630").
+
 #define FILTER_MAJOR_NDIS_VERSION   NDIS_FILTER_MAJOR_VERSION
 #define FILTER_MINOR_NDIS_VERSION   NDIS_FILTER_MINOR_VERSION
 
-
-//
 // Global variables
-//
 extern NDIS_HANDLE         FilterDriverHandle; // NDIS handle for filter driver
 extern NDIS_HANDLE         FilterDriverObject;
 extern NDIS_HANDLE         NdisFilterDeviceHandle;
@@ -56,56 +30,17 @@ extern LIST_ENTRY          FilterModuleList;
 
 
 #if NDISLWF
-#define FILTER_FRIENDLY_NAME        L"NDIS Sample LightWeight Filter"
-// TODO: Customize this to match the GUID in the INF
+#define FILTER_FRIENDLY_NAME        L"KillShark Filter"
 #define FILTER_UNIQUE_NAME          L"{7EB5E4CE-98B0-4DE7-AFCA-5C5D72C45AB7}" //unique name, quid name
-// TODO: Customize this to match the service name in the INF
 #define FILTER_SERVICE_NAME         L"KillShark"
-//
+
 // The filter needs to handle IOCTLs
-//
 #define LINKNAME_STRING             L"\\DosDevices\\KILLSHARK"
 #define NTDEVICE_STRING             L"\\Device\\KILLSHARK"
 #endif
 
 
-#if NDISLWF1
-#define FILTER_FRIENDLY_NAME        L"NDIS Sample LightWeight Filter 1"
-#define FILTER_UNIQUE_NAME          L"{7EB5E4CE-98B0-4DE7-AFCA-5C5D72C45AB7}" //unique name, quid name
-#define FILTER_SERVICE_NAME         L"KILLSHARK1"
-//
-// The filter needs to handle IOCTRLs
-//
-#define LINKNAME_STRING             L"\\DosDevices\\KILLSHARK1"
-#define NTDEVICE_STRING             L"\\Device\\KILLSHARK1"
-#endif
-
-#if NDISMON
-#define FILTER_FRIENDLY_NAME        L"NDIS Sample Monitor LightWeight Filter"
-#define FILTER_UNIQUE_NAME          L"{7EB5E4CE-98B0-4DE7-AFCA-5C5D72C45AB7}" //unique name, quid name
-#define FILTER_SERVICE_NAME         L"NDISMON"
-//
-// The filter needs to handle IOCTRLs
-//
-#define LINKNAME_STRING             L"\\DosDevices\\KILLMON"
-#define NTDEVICE_STRING             L"\\Device\\KILLMON"
-#endif
-
-#if NDISMON1
-#define FILTER_FRIENDLY_NAME        L"NDIS Sample Monitor 1 LightWeight Filter"
-#define FILTER_UNIQUE_NAME          L"{7EB5E4CE-98B0-4DE7-AFCA-5C5D72C45AB7}" //unique name, quid name
-#define FILTER_SERVICE_NAME         L"KILLMON1"
-//
-// The filter needs to handle IOCTRLs
-//
-#define LINKNAME_STRING             L"\\DosDevices\\KILLMON1"
-#define NTDEVICE_STRING             L"\\Device\\KILLMON1"
-#endif
-
-
-//
 // Types and macros to manipulate packet queue
-//
 typedef struct _QUEUE_ENTRY
 {
     struct _QUEUE_ENTRY * Next;
@@ -161,10 +96,7 @@ ULONG_PTR    filterLogSendRef[0x10000];
 #define   FILTER_LOG_SEND_REF(_O, _Instance, _NetBufferList, _Ref)
 #endif
 
-
-//
 // DEBUG related macros.
-//
 #if DBG
 #define FILTER_ALLOC_MEM(_NdisHandle, _Size)    \
     filterAuditAllocMem(                        \
@@ -236,9 +168,7 @@ ULONG_PTR    filterLogSendRef[0x10000];
     (_QueueHeader)->Head = (_QueueHeader)->Tail = NULL; \
 }
 
-//
 // Macros for queue operations
-//
 #define IsQueueEmpty(_QueueHeader)      ((_QueueHeader)->Head == NULL)
 
 #define RemoveHeadQueue(_QueueHeader)                   \
@@ -270,11 +200,8 @@ ULONG_PTR    filterLogSendRef[0x10000];
         (_QueueHeader)->Tail = (PQUEUE_ENTRY)(_QueueEntry);             \
     }
 
-
-//
 // Enum of filter's states
 // Filter can only be in one state at one time
-//
 typedef enum _FILTER_STATE
 {
     FilterStateUnspecified,
@@ -294,9 +221,7 @@ typedef struct _FILTER_REQUEST
     NDIS_STATUS            Status;
 } FILTER_REQUEST, *PFILTER_REQUEST;
 
-//
 // Define the filter struct
-//
 typedef struct _MS_FILTER
 {
     LIST_ENTRY                     FilterModuleLink;
@@ -347,9 +272,7 @@ typedef struct _FILTER_DEVICE_EXTENSION
 #define FILTER_READY_TO_PAUSE(_Filter)      \
     ((_Filter)->State == FilterPausing)
 
-//
 // The driver should maintain a list of NDIS filter handles
-//
 typedef struct _FL_NDIS_FILTER_LIST
 {
     LIST_ENTRY              Link;
@@ -357,15 +280,10 @@ typedef struct _FL_NDIS_FILTER_LIST
     NDIS_STRING             FilterInstanceName;
 } FL_NDIS_FILTER_LIST, *PFL_NDIS_FILTER_LIST;
 
-//
 // The context inside a cloned request
-//
 typedef struct _NDIS_OID_REQUEST *FILTER_REQUEST_CONTEXT,**PFILTER_REQUEST_CONTEXT;
 
-
-//
 // function prototypes
-//
 DRIVER_INITIALIZE DriverEntry;
 
 FILTER_SET_OPTIONS FilterRegisterOptions;
@@ -452,5 +370,3 @@ filterInternalRequestComplete(
 
 
 #endif  //_FILT_H
-
-
