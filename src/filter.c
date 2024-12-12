@@ -50,6 +50,7 @@ DriverEntry(
     UNREFERENCED_PARAMETER(RegistryPath);
 
     DEBUGP(DL_TRACE, "===>DriverEntry...\n");
+    KdPrint(("===> DriverEntry...\n"));
 
     FilterDriverObject = DriverObject;
 
@@ -80,11 +81,11 @@ DriverEntry(
         FChars.RestartHandler = FilterRestart;
         FChars.PauseHandler = FilterPause;
 
-        FChars.SendNetBufferListsHandler = FilterSendNetBufferLists;
-        FChars.ReturnNetBufferListsHandler = FilterReturnNetBufferLists;
-        FChars.SendNetBufferListsCompleteHandler = FilterSendNetBufferListsComplete;
+        FChars.SendNetBufferListsHandler = NULL;
+        FChars.ReturnNetBufferListsHandler = NULL;
+        FChars.SendNetBufferListsCompleteHandler = NULL;
         FChars.ReceiveNetBufferListsHandler = FilterReceiveNetBufferLists;
-        FChars.CancelSendNetBufferListsHandler = FilterCancelSendNetBufferLists;
+        FChars.CancelSendNetBufferListsHandler = NULL;
 
         // Optional handlers set to NULL
         FChars.SetFilterModuleOptionsHandler = NULL;
@@ -616,7 +617,7 @@ VOID PrintNetBufferContents(PNET_BUFFER NetBuffer)
     PUCHAR DataBuffer;
 
     DataLength = NET_BUFFER_DATA_LENGTH(NetBuffer);
-    ULONG BytesToPrint = (DataLength < 64) ? DataLength : 64;
+    ULONG BytesToPrint = NET_BUFFER_DATA_LENGTH(NetBuffer);
 
     DataBuffer = NdisGetDataBuffer(NetBuffer, BytesToPrint, NULL, 1, 0);
     if (DataBuffer)
@@ -669,11 +670,14 @@ FilterReceiveNetBufferLists(
     ULONG DataLength;
     PUCHAR DataBuffer;
 
-    const UCHAR Pattern[] = { 0x48 }; // "Hello" in ASCII
+    const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
     const ULONG PatternLength = sizeof(Pattern);
 
     UNREFERENCED_PARAMETER(NumberOfNetBufferLists);
     UNREFERENCED_PARAMETER(PortNumber);
+
+    
+    KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
     while (CurrNetBufferList)
     {
@@ -686,8 +690,7 @@ FilterReceiveNetBufferLists(
 
             while (RemainingData > 0)
             {
-                ULONG ChunkSize = (RemainingData < 64) ? RemainingData : 64;
-                DataBuffer = NdisGetDataBuffer(CurrNetBuffer, ChunkSize, NULL, 1, Offset);
+                DataBuffer = NdisGetDataBuffer(CurrNetBuffer, DataLength, NULL, 1, Offset);
 
                 if (!DataBuffer)
                 {
@@ -695,7 +698,7 @@ FilterReceiveNetBufferLists(
                     break;
                 }
 
-                for (ULONG i = 0; i <= ChunkSize - PatternLength; i++)
+                for (ULONG i = 0; i <= DataLength - PatternLength; i++)
                 {
                     if (memcmp(&DataBuffer[i], Pattern, PatternLength) == 0)
                     {
@@ -703,18 +706,36 @@ FilterReceiveNetBufferLists(
                         PrintNetBufferContents(CurrNetBuffer);
                     }
                 }
-
-                RemainingData -= ChunkSize;
-                Offset += ChunkSize;
+                RemainingData -= DataLength;
+                Offset += DataLength;
             }
-
+            PrintNetBufferContents(CurrNetBuffer);
             CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer);
         }
 
         CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList);
     }
 
-    NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReceiveFlags);
+    if (pFilter->State == FilterRunning)
+    {
+        NdisFIndicateReceiveNetBufferLists(
+            pFilter->FilterHandle,
+            NetBufferLists,
+            PortNumber,
+            NumberOfNetBufferLists,
+            ReceiveFlags);
+    }
+    else
+    {
+        // Optionally return packets if the filter is not running
+        ULONG ReturnFlags = 0;
+        if (NDIS_TEST_RECEIVE_AT_DISPATCH_LEVEL(ReceiveFlags))
+        {
+            NDIS_SET_RETURN_FLAG(ReturnFlags, NDIS_RETURN_FLAGS_DISPATCH_LEVEL);
+        }
+        NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReturnFlags);
+    }
+    KdPrint(("<=== Exit FilterReceiveNetBufferLists\n"));
 }
 
 _Use_decl_annotations_
