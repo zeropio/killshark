@@ -474,15 +474,12 @@ FilterReceiveNetBufferLists(
     PNET_BUFFER_LIST CurrNetBufferList = NetBufferLists;
     PNET_BUFFER CurrNetBuffer;
     ULONG DataLength;
-    PUCHAR DataBuffer;
+    ULONG RemainingData;
+    ULONG Offset;
 
-    const UCHAR Pattern[] = { 0x41 }; // "127.0.0.1"
+    const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
     const ULONG PatternLength = sizeof(Pattern);
 
-    UNREFERENCED_PARAMETER(NumberOfNetBufferLists);
-    UNREFERENCED_PARAMETER(PortNumber);
-
-    
     KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
     while (CurrNetBufferList)
@@ -491,12 +488,13 @@ FilterReceiveNetBufferLists(
         while (CurrNetBuffer)
         {
             DataLength = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
-            ULONG RemainingData = DataLength;
-            ULONG Offset = 0;
+            RemainingData = DataLength;
+            Offset = NET_BUFFER_DATA_OFFSET(CurrNetBuffer);
 
             while (RemainingData > 0)
             {
-                DataBuffer = NdisGetDataBuffer(CurrNetBuffer, DataLength, NULL, 1, Offset);
+                ULONG MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
+                PUCHAR DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
 
                 if (!DataBuffer)
                 {
@@ -504,16 +502,16 @@ FilterReceiveNetBufferLists(
                     break;
                 }
 
-                for (ULONG i = 0; i <= DataLength - PatternLength; i++)
+                for (ULONG i = 0; i <= MappedLength - PatternLength; i++)
                 {
                     if (memcmp(&DataBuffer[i], Pattern, PatternLength) == 0)
                     {
                         KdPrint(("Pattern found at offset %lu in NET_BUFFER.\n", Offset + i));
-                        PrintNetBufferContents(CurrNetBuffer);
                     }
                 }
-                RemainingData -= DataLength;
-                Offset += DataLength;
+                PrintNetBufferContents(CurrNetBuffer);
+                RemainingData -= MappedLength;
+                Offset += MappedLength;
             }
             CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer);
         }
@@ -532,7 +530,6 @@ FilterReceiveNetBufferLists(
     }
     else
     {
-        // Optionally return packets if the filter is not running
         ULONG ReturnFlags = 0;
         if (NDIS_TEST_RECEIVE_AT_DISPATCH_LEVEL(ReceiveFlags))
         {
@@ -540,5 +537,6 @@ FilterReceiveNetBufferLists(
         }
         NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReturnFlags);
     }
+
     KdPrint(("<=== Exit FilterReceiveNetBufferLists\n"));
 }

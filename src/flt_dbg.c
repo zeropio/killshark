@@ -371,6 +371,7 @@ VOID PrintNetBufferContents(PNET_BUFFER NetBuffer)
     DataBuffer = NdisGetDataBuffer(NetBuffer, BytesToPrint, NULL, 1, 0);
     if (DataBuffer)
     {
+        KdPrint(("NET_BUFFER Address: %p, Data Length: %lu bytes\n", NetBuffer, BytesToPrint));
         KdPrint(("NET_BUFFER data (first %lu bytes):\n", BytesToPrint));
 
         for (ULONG i = 0; i < BytesToPrint; i += 16)
