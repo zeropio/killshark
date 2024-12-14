@@ -359,3 +359,46 @@ filterReleaseSpinLock(
     }
 }
 #endif // DBG_SPIN_LOCK
+
+VOID PrintNetBufferContents(PNET_BUFFER NetBuffer)
+{
+    ULONG DataLength;
+    PUCHAR DataBuffer;
+
+    DataLength = NET_BUFFER_DATA_LENGTH(NetBuffer);
+    ULONG BytesToPrint = NET_BUFFER_DATA_LENGTH(NetBuffer);
+
+    DataBuffer = NdisGetDataBuffer(NetBuffer, BytesToPrint, NULL, 1, 0);
+    if (DataBuffer)
+    {
+        KdPrint(("NET_BUFFER data (first %lu bytes):\n", BytesToPrint));
+
+        for (ULONG i = 0; i < BytesToPrint; i += 16)
+        {
+            CHAR Ascii[17] = { 0 };
+            ULONG j;
+
+            KdPrint(("%04X: ", i));
+            for (j = 0; j < 16; j++)
+            {
+                if (i + j < BytesToPrint)
+                {
+                    KdPrint(("%02X ", DataBuffer[i + j]));
+                    Ascii[j] = (DataBuffer[i + j] >= 32 && DataBuffer[i + j] <= 126) ? DataBuffer[i + j] : '.';
+                }
+                else
+                {
+                    KdPrint(("   "));
+                    Ascii[j] = ' ';
+                }
+            }
+
+            Ascii[16] = '\0';
+            KdPrint((" | %s\n", Ascii));
+        }
+    }
+    else
+    {
+        KdPrint(("Failed to map NET_BUFFER data buffer.\n"));
+    }
+}

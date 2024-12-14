@@ -158,6 +158,12 @@ DbgPrintHexDump(
     ULONG        Length
 );
 
+extern
+VOID
+PrintNetBufferContents(
+    PNET_BUFFER NetBuffer
+);
+
 #else
 
 // No debug

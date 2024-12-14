@@ -25,11 +25,11 @@ LIST_ENTRY          FilterModuleList;
 NDIS_FILTER_PARTIAL_CHARACTERISTICS DefaultChars = {
 { 0, 0, 0},
       0,
-      FilterSendNetBufferLists,
-      FilterSendNetBufferListsComplete,
+      NULL,
+      NULL,
       NULL,
       FilterReceiveNetBufferLists,
-      FilterReturnNetBufferLists
+      NULL
 };
 
 
@@ -460,49 +460,6 @@ FilterUnload(
 
 }
 
-VOID PrintNetBufferContents(PNET_BUFFER NetBuffer)
-{
-    ULONG DataLength;
-    PUCHAR DataBuffer;
-
-    DataLength = NET_BUFFER_DATA_LENGTH(NetBuffer);
-    ULONG BytesToPrint = NET_BUFFER_DATA_LENGTH(NetBuffer);
-
-    DataBuffer = NdisGetDataBuffer(NetBuffer, BytesToPrint, NULL, 1, 0);
-    if (DataBuffer)
-    {
-        KdPrint(("NET_BUFFER data (first %lu bytes):\n", BytesToPrint));
-
-        for (ULONG i = 0; i < BytesToPrint; i += 16)
-        {
-            CHAR Ascii[17] = { 0 };
-            ULONG j;
-
-            KdPrint(("%04X: ", i));
-            for (j = 0; j < 16; j++)
-            {
-                if (i + j < BytesToPrint)
-                {
-                    KdPrint(("%02X ", DataBuffer[i + j]));
-                    Ascii[j] = (DataBuffer[i + j] >= 32 && DataBuffer[i + j] <= 126) ? DataBuffer[i + j] : '.';
-                }
-                else
-                {
-                    KdPrint(("   "));
-                    Ascii[j] = ' ';
-                }
-            }
-
-            Ascii[16] = '\0';
-            KdPrint((" | %s\n", Ascii));
-        }
-    }
-    else
-    {
-        KdPrint(("Failed to map NET_BUFFER data buffer.\n"));
-    }
-}
-
 _Use_decl_annotations_
 VOID
 FilterReceiveNetBufferLists(
@@ -519,7 +476,7 @@ FilterReceiveNetBufferLists(
     ULONG DataLength;
     PUCHAR DataBuffer;
 
-    const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
+    const UCHAR Pattern[] = { 0x41 }; // "127.0.0.1"
     const ULONG PatternLength = sizeof(Pattern);
 
     UNREFERENCED_PARAMETER(NumberOfNetBufferLists);
@@ -558,7 +515,6 @@ FilterReceiveNetBufferLists(
                 RemainingData -= DataLength;
                 Offset += DataLength;
             }
-            PrintNetBufferContents(CurrNetBuffer);
             CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer);
         }
 
