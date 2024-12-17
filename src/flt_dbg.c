@@ -403,3 +403,7 @@ VOID PrintNetBufferContents(PNET_BUFFER NetBuffer)
         KdPrint(("Failed to map NET_BUFFER data buffer.\n"));
     }
 }
+
+unsigned short CustomNtohs(unsigned short netshort) {
+    return (netshort >> 8) | (netshort << 8);
+}

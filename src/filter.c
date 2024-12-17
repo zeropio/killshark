@@ -9,6 +9,11 @@ Module Name:
 
 #include "precomp.h"
 
+#define CustomNtohl(x) (((x & 0xFF) << 24) | \
+                       ((x & 0xFF00) << 8) | \
+                       ((x & 0xFF0000) >> 8) | \
+                       ((x >> 24) & 0xFF))
+
 #define __FILENUMBER    'PNPF'
 
 #pragma NDIS_INIT_FUNCTION(DriverEntry)
@@ -476,11 +481,46 @@ FilterReceiveNetBufferLists(
     ULONG DataLength;
     ULONG RemainingData;
     ULONG Offset;
+    PETHERNET_FRAME EtherFrame;
+    ULONG               DstAddress;
+    UINT8               FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
     const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
     const ULONG PatternLength = sizeof(Pattern);
 
     KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
+
+    for (; CurrNetBufferList; CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList))
+    {
+        CurrNetBuffer = NET_BUFFER_LIST_FIRST_NB(CurrNetBufferList);
+        for (; CurrNetBuffer; CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer))
+        {
+            EtherFrame = NdisGetDataBuffer(
+                CurrNetBuffer,
+                sizeof(ETHERNET_FRAME),
+                NULL, 1, 0
+            );
+
+            if (!EtherFrame)
+                continue;
+
+            if (CustomNtohs(EtherFrame->EtherType) != 0x0800)
+                continue;
+
+            if (EtherFrame->InternetProtocol.V4Hdr.Protocol != 0x06)
+                continue;
+
+            DstAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
+
+            FirstIpOctet = (UINT8)((DstAddress >> 24) & 0xFF);
+            SecndIpOctet = (UINT8)((DstAddress >> 16) & 0xFF);
+            ThirdIpOctet = (UINT8)((DstAddress >> 8) & 0xFF);
+            FourthIpOctet = (UINT8)(DstAddress & 0xFF);
+
+            KdPrint(("IP Address: %u.%u.%u.%u\n",
+                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
+        }
+    }
 
     while (CurrNetBufferList)
     {
@@ -498,7 +538,7 @@ FilterReceiveNetBufferLists(
 
                 if (!DataBuffer)
                 {
-                    KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu.\n", Offset));
+                    KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
                     break;
                 }
 
@@ -506,10 +546,10 @@ FilterReceiveNetBufferLists(
                 {
                     if (memcmp(&DataBuffer[i], Pattern, PatternLength) == 0)
                     {
-                        KdPrint(("Pattern found at offset %lu in NET_BUFFER.\n", Offset + i));
+                        PrintNetBufferContents(CurrNetBuffer);
+                        KdPrint(("Pattern found at offset %lu in NET_BUFFER\n", Offset + i));
                     }
                 }
-                PrintNetBufferContents(CurrNetBuffer);
                 RemainingData -= MappedLength;
                 Offset += MappedLength;
             }

@@ -164,6 +164,12 @@ PrintNetBufferContents(
     PNET_BUFFER NetBuffer
 );
 
+extern
+unsigned short
+CustomNtohs(
+    unsigned short netshort
+);
+
 #else
 
 // No debug

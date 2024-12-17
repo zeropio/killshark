@@ -362,5 +362,4 @@ filterInternalRequestComplete(
     _In_ NDIS_STATUS                  Status
     );
 
-
 #endif  //_FILT_H
