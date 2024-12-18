@@ -482,13 +482,13 @@ FilterReceiveNetBufferLists(
     ULONG RemainingData;
     ULONG Offset;
     PETHERNET_FRAME EtherFrame;
-    ULONG               DstAddress;
+    ULONG               DstAddress, SrcAddress;
     UINT8               FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
     const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
     const ULONG PatternLength = sizeof(Pattern);
 
-    KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
+    //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
     for (; CurrNetBufferList; CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList))
     {
@@ -511,14 +511,23 @@ FilterReceiveNetBufferLists(
                 continue;
 
             DstAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
+            SrcAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
+
+            FirstIpOctet = (UINT8)((SrcAddress >> 24) & 0xFF);
+            SecndIpOctet = (UINT8)((SrcAddress >> 16) & 0xFF);
+            ThirdIpOctet = (UINT8)((SrcAddress >> 8) & 0xFF);
+            FourthIpOctet = (UINT8)(SrcAddress & 0xFF);
+
+            KdPrint(("\nSource IP Address: %u.%u.%u.%u\n",
+                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
 
             FirstIpOctet = (UINT8)((DstAddress >> 24) & 0xFF);
             SecndIpOctet = (UINT8)((DstAddress >> 16) & 0xFF);
             ThirdIpOctet = (UINT8)((DstAddress >> 8) & 0xFF);
             FourthIpOctet = (UINT8)(DstAddress & 0xFF);
 
-            KdPrint(("IP Address: %u.%u.%u.%u\n",
-                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
+            KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
+                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));   
         }
     }
 
@@ -578,5 +587,5 @@ FilterReceiveNetBufferLists(
         NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReturnFlags);
     }
 
-    KdPrint(("<=== Exit FilterReceiveNetBufferLists\n"));
+    //KdPrint(("<=== Exit FilterReceiveNetBufferLists\n"));
 }
