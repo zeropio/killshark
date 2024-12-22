@@ -59,6 +59,26 @@ typedef struct _ETHERNET_FRAME {
         IPV4_PACKET V4Hdr;
     } InternetProtocol;
 } ETHERNET_FRAME, * PETHERNET_FRAME;
+
+typedef struct _TCP_HEADER {
+    USHORT SourcePort;
+    USHORT DestinationPort;
+    ULONG SequenceNumber;
+    ULONG AcknowledgmentNumber;
+    UCHAR DataOffset : 4;
+    UCHAR Reserved : 3;
+    USHORT ControlFlags : 9;
+    USHORT WindowSize;
+    USHORT Checksum;
+    USHORT UrgentPointer;
+} TCP_HEADER, * PTCP_HEADER;
+
+typedef struct _UDP_HEADER {
+    USHORT SourcePort;
+    USHORT DestinationPort;
+    USHORT Length;
+    USHORT Checksum;
+} UDP_HEADER, * PUDP_HEADER;
 #pragma pack(pop)
 
 #if NDISLWF

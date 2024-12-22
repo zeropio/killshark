@@ -507,7 +507,26 @@ FilterReceiveNetBufferLists(
             if (CustomNtohs(EtherFrame->EtherType) != 0x0800)
                 continue;
 
-            if (EtherFrame->InternetProtocol.V4Hdr.Protocol != 0x06)
+            if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x01)    // ICMP
+            {
+                KdPrint(("Packet Type: ICMP\n"));
+
+            }
+            else if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x06) // TCP
+            {
+                KdPrint(("Packet Type: TCP\n"));
+                TCP_HEADER* tcpHeader = (TCP_HEADER*)(EtherFrame + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET));
+                USHORT destinationPort = tcpHeader->DestinationPort;
+                KdPrint(("TCP Destination Port: %u\n", destinationPort));
+            }
+            else if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x11) // UDP
+            {
+                KdPrint(("Packet Type: UDP\n"));
+                UDP_HEADER* udpHeader = (UDP_HEADER*)(EtherFrame + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET));
+                USHORT destinationPort = udpHeader->DestinationPort;
+                KdPrint(("UDP Destination Port: %u\n", destinationPort));
+            }
+            else
                 continue;
 
             DstAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
@@ -527,7 +546,7 @@ FilterReceiveNetBufferLists(
             FourthIpOctet = (UINT8)(DstAddress & 0xFF);
 
             KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
-                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));   
+                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
         }
     }
 
