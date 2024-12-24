@@ -478,15 +478,16 @@ FilterReceiveNetBufferLists(
     PMS_FILTER pFilter = (PMS_FILTER)FilterModuleContext;
     PNET_BUFFER_LIST CurrNetBufferList = NetBufferLists;
     PNET_BUFFER CurrNetBuffer;
-    ULONG DataLength;
+    // ULONG DataLength;
+    ULONG MappedLength;
     ULONG RemainingData;
-    ULONG Offset;
+    PUCHAR DataBuffer;
+    ULONG Offset = 0;
     PETHERNET_FRAME EtherFrame;
-    ULONG               DstAddress, SrcAddress;
-    UINT8               FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
+    ULONG DstAddress, SrcAddress;
+    UINT8 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
-    const UCHAR Pattern[] = { 0x31, 0x32, 0x37, 0x2e, 0x30, 0x2e, 0x30, 0x2e, 0x31 }; // "127.0.0.1"
-    const ULONG PatternLength = sizeof(Pattern);
+    UINT32 targetIp = (172U << 24) | (16U << 16) | (0U << 8) | 138U; // "172.16.0.138"
 
     //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
@@ -504,34 +505,21 @@ FilterReceiveNetBufferLists(
             if (!EtherFrame)
                 continue;
 
+            // IPv4 Only
             if (CustomNtohs(EtherFrame->EtherType) != 0x0800)
                 continue;
 
-            if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x01)    // ICMP
-            {
-                KdPrint(("Packet Type: ICMP\n"));
-
-            }
-            else if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x06) // TCP
-            {
-                KdPrint(("Packet Type: TCP\n"));
-                TCP_HEADER* tcpHeader = (TCP_HEADER*)(EtherFrame + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET));
-                USHORT destinationPort = tcpHeader->DestinationPort;
-                KdPrint(("TCP Destination Port: %u\n", destinationPort));
-            }
-            else if (EtherFrame->InternetProtocol.V4Hdr.Protocol == 0x11) // UDP
-            {
-                KdPrint(("Packet Type: UDP\n"));
-                UDP_HEADER* udpHeader = (UDP_HEADER*)(EtherFrame + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET));
-                USHORT destinationPort = udpHeader->DestinationPort;
-                KdPrint(("UDP Destination Port: %u\n", destinationPort));
-            }
-            else
+            UINT8 protocol = EtherFrame->InternetProtocol.V4Hdr.Protocol;
+            if (!(protocol == 0x01 || protocol == 0x06 || protocol == 0x11)) // Check for ICMP, TCP, UDP
                 continue;
 
             DstAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
             SrcAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
 
+            if (SrcAddress != targetIp)
+                continue;
+
+            // Print Destination and Source IPs
             FirstIpOctet = (UINT8)((SrcAddress >> 24) & 0xFF);
             SecndIpOctet = (UINT8)((SrcAddress >> 16) & 0xFF);
             ThirdIpOctet = (UINT8)((SrcAddress >> 8) & 0xFF);
@@ -547,44 +535,50 @@ FilterReceiveNetBufferLists(
 
             KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
                 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
-        }
-    }
 
-    while (CurrNetBufferList)
-    {
-        CurrNetBuffer = NET_BUFFER_LIST_FIRST_NB(CurrNetBufferList);
-        while (CurrNetBuffer)
-        {
-            DataLength = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
-            RemainingData = DataLength;
-            Offset = NET_BUFFER_DATA_OFFSET(CurrNetBuffer);
+            // Print buffer
+            RemainingData = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
+            MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
+            DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
 
-            while (RemainingData > 0)
+            if (!DataBuffer)
             {
-                ULONG MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
-                PUCHAR DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
-
-                if (!DataBuffer)
-                {
-                    KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
-                    break;
-                }
-
-                for (ULONG i = 0; i <= MappedLength - PatternLength; i++)
-                {
-                    if (memcmp(&DataBuffer[i], Pattern, PatternLength) == 0)
-                    {
-                        PrintNetBufferContents(CurrNetBuffer);
-                        KdPrint(("Pattern found at offset %lu in NET_BUFFER\n", Offset + i));
-                    }
-                }
-                RemainingData -= MappedLength;
-                Offset += MappedLength;
+                KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
+                break;
             }
-            CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer);
-        }
 
-        CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList);
+            PUCHAR TransportLayerData = DataBuffer + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET);
+            if (protocol == 0x01) // ICMP
+            {
+                KdPrint(("Packet Type: ICMP\n"));
+            }
+            else if (protocol == 0x06) // TCP
+            {
+                KdPrint(("Packet Type: TCP\n"));
+
+                PETHERNET_FRAME ethernetFrame = (PETHERNET_FRAME)TransportLayerData;
+                PIPV4_PACKET ipHeader = (PIPV4_PACKET)((PUCHAR)ethernetFrame + sizeof(ETHERNET_FRAME));
+
+                PUCHAR tcpHeader = (PUCHAR)ipHeader + sizeof(IPV4_PACKET);
+
+                unsigned short tcpDestPort = (tcpHeader[0x24] << 8) | tcpHeader[0x25];
+
+                tcpDestPort = RtlUlongByteSwap(tcpDestPort);
+
+                KdPrint(("TCP Destination Port: %u\n", tcpDestPort));
+            }
+            else if (protocol == 0x11) // UDP
+            {
+                KdPrint(("Packet Type: UDP\n"));
+                PUDP_HEADER udpHeader = (PUDP_HEADER)(TransportLayerData);
+                KdPrint(("UDP Destination Port: %u\n", RtlUlongByteSwap(udpHeader->DestinationPort)));
+            }
+
+            PrintNetBufferContents(CurrNetBuffer);
+
+            RemainingData -= MappedLength;
+            Offset += MappedLength;
+        }
     }
 
     if (pFilter->State == FilterRunning)
