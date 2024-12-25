@@ -484,10 +484,11 @@ FilterReceiveNetBufferLists(
     PUCHAR DataBuffer;
     ULONG Offset = 0;
     PETHERNET_FRAME EtherFrame;
-    ULONG DstAddress, SrcAddress;
+    ULONG DestinationAddress, SourceAddress;
     UINT8 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
-    UINT32 targetIp = (172U << 24) | (16U << 16) | (0U << 8) | 138U; // "172.16.0.138"
+    UINT32 SourceTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 138U; // "172.16.0.138"
+    UINT32 DestinationTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 142U; // "172.16.0.142"
 
     //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
@@ -513,30 +514,30 @@ FilterReceiveNetBufferLists(
             if (!(protocol == 0x01 || protocol == 0x06 || protocol == 0x11)) // Check for ICMP, TCP, UDP
                 continue;
 
-            DstAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
-            SrcAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
+            DestinationAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
+            SourceAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
 
-            if (SrcAddress != targetIp)
+            if (SourceAddress != SourceTargetIp || DestinationAddress != DestinationTargetIp)
                 continue;
 
             // Print Destination and Source IPs
-            FirstIpOctet = (UINT8)((SrcAddress >> 24) & 0xFF);
-            SecndIpOctet = (UINT8)((SrcAddress >> 16) & 0xFF);
-            ThirdIpOctet = (UINT8)((SrcAddress >> 8) & 0xFF);
-            FourthIpOctet = (UINT8)(SrcAddress & 0xFF);
+            FirstIpOctet = (UINT8)((SourceAddress >> 24) & 0xFF);
+            SecndIpOctet = (UINT8)((SourceAddress >> 16) & 0xFF);
+            ThirdIpOctet = (UINT8)((SourceAddress >> 8) & 0xFF);
+            FourthIpOctet = (UINT8)(SourceAddress & 0xFF);
 
             KdPrint(("\nSource IP Address: %u.%u.%u.%u\n",
                 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
 
-            FirstIpOctet = (UINT8)((DstAddress >> 24) & 0xFF);
-            SecndIpOctet = (UINT8)((DstAddress >> 16) & 0xFF);
-            ThirdIpOctet = (UINT8)((DstAddress >> 8) & 0xFF);
-            FourthIpOctet = (UINT8)(DstAddress & 0xFF);
+            FirstIpOctet = (UINT8)((DestinationAddress >> 24) & 0xFF);
+            SecndIpOctet = (UINT8)((DestinationAddress >> 16) & 0xFF);
+            ThirdIpOctet = (UINT8)((DestinationAddress >> 8) & 0xFF);
+            FourthIpOctet = (UINT8)(DestinationAddress & 0xFF);
 
             KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
                 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
 
-            // Print buffer
+            // Get buffer
             RemainingData = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
             MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
             DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
@@ -547,32 +548,16 @@ FilterReceiveNetBufferLists(
                 break;
             }
 
-            PUCHAR TransportLayerData = DataBuffer + sizeof(ETHERNET_FRAME) + sizeof(IPV4_PACKET);
             if (protocol == 0x01) // ICMP
-            {
                 KdPrint(("Packet Type: ICMP\n"));
-            }
             else if (protocol == 0x06) // TCP
-            {
                 KdPrint(("Packet Type: TCP\n"));
-
-                PETHERNET_FRAME ethernetFrame = (PETHERNET_FRAME)TransportLayerData;
-                PIPV4_PACKET ipHeader = (PIPV4_PACKET)((PUCHAR)ethernetFrame + sizeof(ETHERNET_FRAME));
-
-                PUCHAR tcpHeader = (PUCHAR)ipHeader + sizeof(IPV4_PACKET);
-
-                unsigned short tcpDestPort = (tcpHeader[0x24] << 8) | tcpHeader[0x25];
-
-                //tcpDestPort = RtlUlongByteSwap(tcpDestPort);
-
-                KdPrint(("TCP Destination Port: %u\n", tcpDestPort));
-            }
             else if (protocol == 0x11) // UDP
-            {
                 KdPrint(("Packet Type: UDP\n"));
-                PUDP_HEADER udpHeader = (PUDP_HEADER)(TransportLayerData);
-                KdPrint(("UDP Destination Port: %u\n", RtlUlongByteSwap(udpHeader->DestinationPort)));
-            }
+
+            // Print Destination Port
+            unsigned short DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+            KdPrint(("Destination Port: %u\n", DestinationPort));
 
             PrintNetBufferContents(CurrNetBuffer);
 
