@@ -563,7 +563,7 @@ FilterReceiveNetBufferLists(
 
                 unsigned short tcpDestPort = (tcpHeader[0x24] << 8) | tcpHeader[0x25];
 
-                tcpDestPort = RtlUlongByteSwap(tcpDestPort);
+                //tcpDestPort = RtlUlongByteSwap(tcpDestPort);
 
                 KdPrint(("TCP Destination Port: %u\n", tcpDestPort));
             }
