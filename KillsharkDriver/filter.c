@@ -489,6 +489,7 @@ FilterReceiveNetBufferLists(
 
     UINT32 SourceTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 138U; // "172.16.0.138"
     UINT32 DestinationTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 142U; // "172.16.0.142"
+    unsigned short DestinationPort;
 
     //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
@@ -514,9 +515,9 @@ FilterReceiveNetBufferLists(
             if (!(protocol == 0x01 || protocol == 0x06 || protocol == 0x11)) // Check for ICMP, TCP, UDP
                 continue;
 
+            // Filter IPs
             DestinationAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
             SourceAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
-
             if (SourceAddress != SourceTargetIp || DestinationAddress != DestinationTargetIp)
                 continue;
 
@@ -541,7 +542,6 @@ FilterReceiveNetBufferLists(
             RemainingData = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
             MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
             DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
-
             if (!DataBuffer)
             {
                 KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
@@ -556,8 +556,14 @@ FilterReceiveNetBufferLists(
                 KdPrint(("Packet Type: UDP\n"));
 
             // Print Destination Port
-            unsigned short DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
-            KdPrint(("Destination Port: %u\n", DestinationPort));
+            DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+            KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
+
+            // Ports Modification
+            DataBuffer[0x24] = 0xAA;
+            DataBuffer[0x25] = 0xAA;
+            DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+            KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
 
             PrintNetBufferContents(CurrNetBuffer);
 
