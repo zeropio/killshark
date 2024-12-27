@@ -81,14 +81,24 @@ typedef struct _UDP_HEADER {
 } UDP_HEADER, * PUDP_HEADER;
 #pragma pack(pop)
 
+typedef struct _Connection
+{
+    UINT32 SourceTargetIp;
+    unsigned short SourcePort;
+    UINT32 DestinationTargetIp;
+    unsigned short DestinationPort;
+} Connection;
+
+extern Connection g_connection;
+
 #if NDISLWF
 #define FILTER_FRIENDLY_NAME        L"KillShark Filter"
 #define FILTER_UNIQUE_NAME          L"{7EB5E4CE-98B0-4DE7-AFCA-5C5D72C45AB7}" //unique name, quid name
 #define FILTER_SERVICE_NAME         L"KillShark"
 
 // The filter needs to handle IOCTLs
-#define LINKNAME_STRING             L"\\DosDevices\\KILLSHARK"
-#define NTDEVICE_STRING             L"\\Device\\KILLSHARK"
+#define LINKNAME_STRING             L"\\DosDevices\\KillShark"
+#define NTDEVICE_STRING             L"\\Device\\KillShark"
 #endif
 
 

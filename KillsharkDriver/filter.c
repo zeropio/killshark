@@ -37,6 +37,7 @@ NDIS_FILTER_PARTIAL_CHARACTERISTICS DefaultChars = {
       NULL
 };
 
+Connection g_connection;
 
 _Use_decl_annotations_
 NTSTATUS
@@ -487,91 +488,89 @@ FilterReceiveNetBufferLists(
     ULONG DestinationAddress, SourceAddress;
     UINT8 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
-    UINT32 SourceTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 138U; // "172.16.0.138"
-    UINT32 DestinationTargetIp = (172U << 24) | (16U << 16) | (0U << 8) | 142U; // "172.16.0.142"
     unsigned short DestinationPort;
 
     //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
-    for (; CurrNetBufferList; CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList))
-    {
-        CurrNetBuffer = NET_BUFFER_LIST_FIRST_NB(CurrNetBufferList);
-        for (; CurrNetBuffer; CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer))
+    if (g_connection.SourcePort != 0) {
+        for (; CurrNetBufferList; CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList))
         {
-            EtherFrame = NdisGetDataBuffer(
-                CurrNetBuffer,
-                sizeof(ETHERNET_FRAME),
-                NULL, 1, 0
-            );
-
-            if (!EtherFrame)
-                continue;
-
-            // IPv4 Only
-            if (CustomNtohs(EtherFrame->EtherType) != 0x0800)
-                continue;
-
-            UINT8 protocol = EtherFrame->InternetProtocol.V4Hdr.Protocol;
-            if (!(protocol == 0x01 || protocol == 0x06 || protocol == 0x11)) // Check for ICMP, TCP, UDP
-                continue;
-
-            // Filter IPs
-            DestinationAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
-            SourceAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
-            if (SourceAddress != SourceTargetIp || DestinationAddress != DestinationTargetIp)
-                continue;
-
-            // Print Destination and Source IPs
-            FirstIpOctet = (UINT8)((SourceAddress >> 24) & 0xFF);
-            SecndIpOctet = (UINT8)((SourceAddress >> 16) & 0xFF);
-            ThirdIpOctet = (UINT8)((SourceAddress >> 8) & 0xFF);
-            FourthIpOctet = (UINT8)(SourceAddress & 0xFF);
-
-            KdPrint(("\nSource IP Address: %u.%u.%u.%u\n",
-                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
-
-            FirstIpOctet = (UINT8)((DestinationAddress >> 24) & 0xFF);
-            SecndIpOctet = (UINT8)((DestinationAddress >> 16) & 0xFF);
-            ThirdIpOctet = (UINT8)((DestinationAddress >> 8) & 0xFF);
-            FourthIpOctet = (UINT8)(DestinationAddress & 0xFF);
-
-            KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
-                FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet));
-
-            // Get buffer
-            RemainingData = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
-            MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
-            DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
-            if (!DataBuffer)
+            CurrNetBuffer = NET_BUFFER_LIST_FIRST_NB(CurrNetBufferList);
+            for (; CurrNetBuffer; CurrNetBuffer = NET_BUFFER_NEXT_NB(CurrNetBuffer))
             {
-                KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
-                break;
+                EtherFrame = NdisGetDataBuffer(
+                    CurrNetBuffer,
+                    sizeof(ETHERNET_FRAME),
+                    NULL, 1, 0
+                );
+
+                if (!EtherFrame)
+                    continue;
+
+                // IPv4 Only
+                if (CustomNtohs(EtherFrame->EtherType) != 0x0800)
+                    continue;
+
+                UINT8 protocol = EtherFrame->InternetProtocol.V4Hdr.Protocol;
+                if (!(protocol == 0x01 || protocol == 0x06 || protocol == 0x11)) // Check for ICMP, TCP, UDP
+                    continue;
+
+                // Filter IPs
+                DestinationAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
+                SourceAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
+                if (SourceAddress != g_connection.SourceTargetIp || DestinationAddress != g_connection.SourceTargetIp)
+                    continue;
+
+                // Get buffer
+                RemainingData = NET_BUFFER_DATA_LENGTH(CurrNetBuffer);
+                MappedLength = min(RemainingData, MmGetMdlByteCount(NET_BUFFER_CURRENT_MDL(CurrNetBuffer)) - Offset);
+                DataBuffer = NdisGetDataBuffer(CurrNetBuffer, MappedLength, NULL, 1, Offset);
+                if (!DataBuffer)
+                {
+                    KdPrint(("Failed to map NET_BUFFER data buffer at offset %lu\n", Offset));
+                    break;
+                }
+
+                // Check Port
+                DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+                if (DestinationPort != g_connection.SourcePort)
+                    continue;
+
+                // Print Info
+                KdPrint(("\nSource IP Address: %u.%u.%u.%u\n",
+                    (UINT8)((SourceAddress >> 24) & 0xFF),
+                    (UINT8)((SourceAddress >> 16) & 0xFF),
+                    (UINT8)((SourceAddress >> 8) & 0xFF),
+                    (UINT8)(SourceAddress & 0xFF)));
+                KdPrint(("Destination IP Address: %u.%u.%u.%u\n",
+                    (UINT8)((DestinationAddress >> 24) & 0xFF),
+                    (UINT8)((DestinationAddress >> 16) & 0xFF),
+                    (UINT8)((DestinationAddress >> 8) & 0xFF),
+                    (UINT8)(DestinationAddress & 0xFF)));
+                KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
+
+                if (protocol == 0x01) // ICMP
+                    KdPrint(("Packet Type: ICMP\n"));
+                else if (protocol == 0x06) // TCP
+                    KdPrint(("Packet Type: TCP\n"));
+                else if (protocol == 0x11) // UDP
+                    KdPrint(("Packet Type: UDP\n"));
+
+                // Ports Modification
+                DataBuffer[0x24] = (unsigned char)(g_connection.DestinationPort & 0xFF);
+                DataBuffer[0x25] = (unsigned char)((g_connection.DestinationPort >> 8) & 0xFF);
+                DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+                KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
+
+                PrintNetBufferContents(CurrNetBuffer);
+
+                RemainingData -= MappedLength;
+                Offset += MappedLength;
             }
-
-            if (protocol == 0x01) // ICMP
-                KdPrint(("Packet Type: ICMP\n"));
-            else if (protocol == 0x06) // TCP
-                KdPrint(("Packet Type: TCP\n"));
-            else if (protocol == 0x11) // UDP
-                KdPrint(("Packet Type: UDP\n"));
-
-            // Print Destination Port
-            DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
-            KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
-
-            // Ports Modification
-            DataBuffer[0x24] = 0xAA;
-            DataBuffer[0x25] = 0xAA;
-            DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
-            KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
-
-            PrintNetBufferContents(CurrNetBuffer);
-
-            RemainingData -= MappedLength;
-            Offset += MappedLength;
         }
     }
 
+    // Continue packet
     if (pFilter->State == FilterRunning)
     {
         NdisFIndicateReceiveNetBufferLists(
