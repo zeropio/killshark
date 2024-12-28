@@ -233,7 +233,7 @@ FilterDeviceIoControl(
             Connection* connection = (Connection*)InputBuffer;
             g_connection = *connection;
 
-            KdPrint(("Received Connection on FilterDeviceIoControl\n"));
+            KdPrint(("Received Connection\n"));
             KdPrint(("Source IP: %u.%u.%u.%u\n",
                 (g_connection.SourceTargetIp >> 24) & 0xFF,
                 (g_connection.SourceTargetIp >> 16) & 0xFF,
@@ -241,13 +241,13 @@ FilterDeviceIoControl(
                 g_connection.SourceTargetIp & 0xFF
                 ));
             KdPrint(("Source Port: %u\n", g_connection.SourcePort));
-            KdPrint(("Source IP: %u.%u.%u.%u\n",
+            KdPrint(("Destination IP: %u.%u.%u.%u\n",
                 (g_connection.DestinationTargetIp >> 24) & 0xFF,
                 (g_connection.DestinationTargetIp >> 16) & 0xFF,
                 (g_connection.DestinationTargetIp >> 8) & 0xFF,
                 g_connection.DestinationTargetIp & 0xFF
                 ));
-            KdPrint(("Source Port: %u\n", g_connection.DestinationPort));
+            KdPrint(("Modifiable Port: %u\n", g_connection.DestinationPort));
 
             Status = NDIS_STATUS_SUCCESS;
             break;

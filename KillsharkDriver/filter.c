@@ -486,11 +486,8 @@ FilterReceiveNetBufferLists(
     ULONG Offset = 0;
     PETHERNET_FRAME EtherFrame;
     ULONG DestinationAddress, SourceAddress;
-    UINT8 FirstIpOctet, SecndIpOctet, ThirdIpOctet, FourthIpOctet;
 
     unsigned short DestinationPort;
-
-    //KdPrint(("===> Enter FilterReceiveNetBufferLists\n"));
 
     if (g_connection.SourcePort != 0) {
         for (; CurrNetBufferList; CurrNetBufferList = NET_BUFFER_LIST_NEXT_NBL(CurrNetBufferList))
@@ -518,7 +515,8 @@ FilterReceiveNetBufferLists(
                 // Filter IPs
                 DestinationAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.DestinationIPAddress);
                 SourceAddress = RtlUlongByteSwap(EtherFrame->InternetProtocol.V4Hdr.SourceIPAddress);
-                if (SourceAddress != g_connection.SourceTargetIp || DestinationAddress != g_connection.SourceTargetIp)
+
+                if (SourceAddress != g_connection.SourceTargetIp || DestinationAddress != g_connection.DestinationTargetIp)
                     continue;
 
                 // Get buffer
@@ -560,7 +558,7 @@ FilterReceiveNetBufferLists(
                 DataBuffer[0x24] = (unsigned char)(g_connection.DestinationPort & 0xFF);
                 DataBuffer[0x25] = (unsigned char)((g_connection.DestinationPort >> 8) & 0xFF);
                 DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
-                KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
+                KdPrint(("Destination Port Modified: %u\n", DestinationPort));
 
                 PrintNetBufferContents(CurrNetBuffer);
 
@@ -589,6 +587,4 @@ FilterReceiveNetBufferLists(
         }
         NdisFReturnNetBufferLists(pFilter->FilterHandle, NetBufferLists, ReturnFlags);
     }
-
-    //KdPrint(("<=== Exit FilterReceiveNetBufferLists\n"));
 }
