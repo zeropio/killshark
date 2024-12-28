@@ -545,7 +545,6 @@ FilterReceiveNetBufferLists(
                     (UINT8)((DestinationAddress >> 16) & 0xFF),
                     (UINT8)((DestinationAddress >> 8) & 0xFF),
                     (UINT8)(DestinationAddress & 0xFF)));
-                KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
 
                 if (protocol == 0x01) // ICMP
                     KdPrint(("Packet Type: ICMP\n"));
@@ -554,10 +553,12 @@ FilterReceiveNetBufferLists(
                 else if (protocol == 0x11) // UDP
                     KdPrint(("Packet Type: UDP\n"));
 
+                KdPrint(("Destination Port Unmodified: %u\n", DestinationPort));
+
                 // Ports Modification
                 DataBuffer[0x24] = (unsigned char)(g_connection.DestinationPort & 0xFF);
                 DataBuffer[0x25] = (unsigned char)((g_connection.DestinationPort >> 8) & 0xFF);
-                DestinationPort = (DataBuffer[0x24] << 8) | DataBuffer[0x25];
+                DestinationPort = (DataBuffer[0x25] << 8) | DataBuffer[0x24];
                 KdPrint(("Destination Port Modified: %u\n", DestinationPort));
 
                 PrintNetBufferContents(CurrNetBuffer);
